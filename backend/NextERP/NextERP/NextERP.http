@@ -1,0 +1,6 @@
+@NextERP_HostAddress = http://localhost:5290
+
+GET {{NextERP_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
