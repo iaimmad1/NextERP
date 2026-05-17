@@ -1,6 +1,6 @@
 using FluentValidation;
 using MediatR;
-using NextERP.Common.DTOs;
+using NextERP.Common.Exceptions;
 
 namespace NextERP.Common.Behaviours;
 
@@ -24,9 +24,8 @@ public class ValidationBehaviour<TRequest, TResponse> : IPipelineBehavior<TReque
 
             if (failures.Any())
             {
-                // Assuming TResponse is ApiResponse<T> or similar
-                // For now, throw ValidationException
-                throw new ValidationException(failures);
+                throw new NextERP.Common.Exceptions.ValidationException(
+                    failures.Select(f => f.ErrorMessage).ToList());
             }
         }
 

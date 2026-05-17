@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NextERP.Extensions;
 using NextERP.Infrastructure.Data;
+using NextERP.Common.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Use global exception handler
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 if (app.Environment.IsDevelopment())
 {
     // 2. Map the actual JSON document (defaults to /openapi/v1.json)
@@ -39,6 +43,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("DefaultPolicy");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 

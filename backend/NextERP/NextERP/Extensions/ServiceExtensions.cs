@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using NextERP.Common.Behaviours;
 using NextERP.Common.Constants;
 using NextERP.Core.Interfaces;
@@ -6,6 +6,9 @@ using NextERP.Infrastructure.Repositories;
 using NextERP.Infrastructure.Security;
 using NextERP.Infrastructure.Services;
 using System.Reflection;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace NextERP.Extensions;
 
@@ -16,6 +19,29 @@ public static class ServiceExtensions
     {
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        
+        // Add Authentication
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+            .AddJwtBearer(options =>
+            {
+                var secret = configuration["JwtSettings:Secret"];
+                var issuer = configuration["JwtSettings:Issuer"];
+                var audience = configuration["JwtSettings:Audience"];
+
+                options.RequireHttpsMetadata = false;
+                options.SaveToken = true;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = issuer,
+                    ValidAudience = audience,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret ?? "default_secret_key_that_is_at_least_32_chars_long"))
+                };
+            });
+
         services.AddAuthorizationPolicies();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
@@ -40,22 +66,48 @@ public static class ServiceExtensions
     {
         services.AddAuthorization(options =>
         {
-            // Policy for each permission
-            options.AddPolicy(Permissions.UsersView, policy => policy.RequireClaim("permission", Permissions.UsersView));
-            options.AddPolicy(Permissions.UsersCreate, policy => policy.RequireClaim("permission", Permissions.UsersCreate));
-            options.AddPolicy(Permissions.UsersEdit, policy => policy.RequireClaim("permission", Permissions.UsersEdit));
-            options.AddPolicy(Permissions.UsersDelete, policy => policy.RequireClaim("permission", Permissions.UsersDelete));
-            options.AddPolicy(Permissions.UsersManage, policy => policy.RequireClaim("permission", Permissions.UsersManage));
+            // Helper to add policy that allows if user has permission OR is an Admin
+            void AddPermissionPolicy(string permission)
+            {
+                options.AddPolicy(permission, policy =>
+                    policy.RequireAssertion(context =>
+                        context.User.HasClaim(c => c.Type == "permission" && c.Value == permission) ||
+                        context.User.IsInRole("Admin")));
+            }
 
-            options.AddPolicy(Permissions.RolesView, policy => policy.RequireClaim("permission", Permissions.RolesView));
-            options.AddPolicy(Permissions.RolesCreate, policy => policy.RequireClaim("permission", Permissions.RolesCreate));
-            options.AddPolicy(Permissions.RolesEdit, policy => policy.RequireClaim("permission", Permissions.RolesEdit));
-            options.AddPolicy(Permissions.RolesDelete, policy => policy.RequireClaim("permission", Permissions.RolesDelete));
-            options.AddPolicy(Permissions.RolesAssign, policy => policy.RequireClaim("permission", Permissions.RolesAssign));
+            // User Management
+            AddPermissionPolicy(Permissions.UsersView);
+            AddPermissionPolicy(Permissions.UsersCreate);
+            AddPermissionPolicy(Permissions.UsersEdit);
+            AddPermissionPolicy(Permissions.UsersDelete);
+            AddPermissionPolicy(Permissions.UsersManage);
+
+            // Role Management
+            AddPermissionPolicy(Permissions.RolesView);
+            AddPermissionPolicy(Permissions.RolesCreate);
+            AddPermissionPolicy(Permissions.RolesEdit);
+            AddPermissionPolicy(Permissions.RolesDelete);
+            AddPermissionPolicy(Permissions.RolesAssign);
+
+            // Product Management
+            AddPermissionPolicy(Permissions.ProductsView);
+            AddPermissionPolicy(Permissions.ProductsCreate);
+            AddPermissionPolicy(Permissions.ProductsEdit);
+            AddPermissionPolicy(Permissions.ProductsDelete);
+
+            // Order Management
+            AddPermissionPolicy(Permissions.OrdersView);
+            AddPermissionPolicy(Permissions.OrdersCreate);
+            AddPermissionPolicy(Permissions.OrdersUpdate);
+
+            // Tenant Management
+            AddPermissionPolicy(Permissions.TenantsView);
+            AddPermissionPolicy(Permissions.TenantsEdit);
 
             // Admin policy (requires any of the admin permissions)
             options.AddPolicy("AdminOnly", policy =>
                 policy.RequireAssertion(context =>
+                    context.User.IsInRole("Admin") ||
                     context.User.HasClaim(c => c.Type == "permission" &&
                         (c.Value == Permissions.UsersManage ||
                          c.Value == Permissions.RolesAssign ||

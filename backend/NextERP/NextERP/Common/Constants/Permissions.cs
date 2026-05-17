@@ -1,4 +1,4 @@
-﻿namespace NextERP.Common.Constants
+namespace NextERP.Common.Constants
 {
 
     public static class Permissions
@@ -26,5 +26,16 @@
         // System
         public const string SystemSettings = "system.settings";
         public const string SystemAudit = "system.audit";
+
+        // Product Management
+        public const string ProductsView = "products.view";
+        public const string ProductsCreate = "products.create";
+        public const string ProductsEdit = "products.edit";
+        public const string ProductsDelete = "products.delete";
+
+        // Order Management
+        public const string OrdersView = "orders.view";
+        public const string OrdersCreate = "orders.create";
+        public const string OrdersUpdate = "orders.update";
     }
 }
